@@ -2,7 +2,7 @@ from django.shortcuts import redirect, render
 from django.http import HttpResponse
 from django.contrib.auth.models import User
 from .models import Message, Topic, Room
-from .forms import RoomForm
+from .forms import RoomForm, UserForm
 from django.db.models import Q
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
@@ -60,7 +60,7 @@ def home(request):
     )
   room_count = rooms.count()
   room_messages = Message.objects.filter(Q(room__topic__name__contains=q))
-  topics = Topic.objects.all()
+  topics = Topic.objects.all()[:5]
   context = {'rooms':rooms, 'topics':topics, 'q':q, 
     'room_count':room_count, 'room_messages':room_messages}
   return render(request, 'base/home.html', context)
@@ -130,7 +130,6 @@ def updateRoom(request, pk):
     context = {'form': form, 'topics': topics, 'room': room}
     return render(request, 'base/room_form.html', context)
 
-
 @login_required(login_url='login')
 def deleteRoom(request, pk):
   room = Room.objects.get(id=pk)
@@ -155,19 +154,32 @@ def deleteMessage(request, pk):
   context = {'message':message}
   return render(request, 'base/delete.html', context)
 
-def updateUser(request, pk):
-  user = User.objects.get(id=pk)
-  context = {}
+@login_required(login_url='login')
+def updateUser(request):
+  form = UserForm(instance=request.user)
+  if request.method == 'POST':
+    form = UserForm(request.POST, instance=request.user)
+    if form.is_valid():
+      form.save()
+      return redirect('user-profile', pk=request.user.id)
+  context = {'form':form}
   return render(request, 'base/update-user.html', context)
 
 def topicsPage(request):
-  
-  topics = Topic.objects.all()  
-  context = {}
+  q = request.GET.get('q')
+  if q:
+    topics = Topic.objects.filter(name__contains=q) 
+  else:
+    topics = Topic.objects.all()
+    q = ''
+    
+  context = {'topics':topics, 'q':q}
   return render(request, 'base/topics.html', context)
 
 def activityPage(request):
-  
-  context = {}
+  room_messages = Message.objects.all()  
+  context = {'room_messages':room_messages}
   return render(request, 'base/activity.html', context)
+
+
 
